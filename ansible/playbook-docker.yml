@@ -1,0 +1,6 @@
+---
+- name: Install Docker on web and monitoring servers
+  hosts: all
+  become: true
+  roles:
+    - geerlingguy.docker
