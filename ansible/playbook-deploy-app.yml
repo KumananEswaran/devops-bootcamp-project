@@ -31,7 +31,7 @@
         name: ship-app
         image: "{{ app_image }}"
         state: started
-        pull: true
+        pull: missing
         restart_policy: unless-stopped
         published_ports:
           - "80:80"
