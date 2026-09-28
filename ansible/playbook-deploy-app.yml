@@ -1,0 +1,37 @@
+---
+- name: Deploy the app container to the web server
+  hosts: web
+  become: true
+  vars:
+    ecr_registry: 265751834658.dkr.ecr.ap-southeast-1.amazonaws.com
+    app_image: "{{ ecr_registry }}/devops-bootcamp/final-project-kumanan:latest"
+  tasks:
+    - name: Install the Docker SDK for Python and the ECR credential helper
+      ansible.builtin.apt:
+        name:
+          - python3-docker
+          - amazon-ecr-credential-helper
+        state: present
+        update_cache: true
+
+    - name: Create root's Docker config directory
+      ansible.builtin.file:
+        path: /root/.docker
+        state: directory
+        mode: "0700"
+
+    - name: Tell Docker to use the ECR credential helper for our registry
+      ansible.builtin.copy:
+        dest: /root/.docker/config.json
+        content: '{"credHelpers": {"{{ ecr_registry }}": "ecr-login"}}'
+        mode: "0600"
+
+    - name: Run the app container on port 80
+      community.docker.docker_container:
+        name: ship-app
+        image: "{{ app_image }}"
+        state: started
+        pull: true
+        restart_policy: unless-stopped
+        published_ports:
+          - "80:80"
