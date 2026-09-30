@@ -1,0 +1,27 @@
+---
+- name: Run node_exporter container on the web server
+  hosts: web
+  become: true
+  tasks:
+    - name: Install the Docker SDK for Python
+      ansible.builtin.apt:
+        name: python3-docker
+        state: present
+
+    - name: Run node_exporter container
+      community.docker.docker_container:
+        name: node-exporter
+        image: prom/node-exporter:latest
+        state: started
+        pull: missing
+        restart_policy: unless-stopped
+        published_ports:
+          - "9100:9100"
+        volumes:
+          - /proc:/host/proc:ro
+          - /sys:/host/sys:ro
+          - /:/rootfs:ro
+        command:
+          - --path.procfs=/host/proc
+          - --path.sysfs=/host/sys
+          - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($|/)
