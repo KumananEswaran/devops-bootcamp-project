@@ -110,6 +110,11 @@ resource "aws_instance" "monitoring" {
   iam_instance_profile   = aws_iam_instance_profile.monitoring.name
   key_name               = aws_key_pair.deployer.key_name
 
+  depends_on = [
+    cloudflare_zero_trust_tunnel_cloudflared.monitoring,
+    cloudflare_zero_trust_tunnel_cloudflared_config.monitoring,
+  ]
+
   tags = { Name = "devops-monitoring", Project = "devops-bootcamp-final-project" }
 }
 
