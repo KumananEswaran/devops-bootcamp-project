@@ -23,7 +23,7 @@
 
     - name: Install the tunnel as a systemd service
       ansible.builtin.command:
-        cmd: "cloudflared service install {{ cloudflare_tunnel_token }}"
+        cmd: "cloudflared service install {{ lookup('file', '/tmp/tunnel_token.txt') }}"
         creates: /etc/cloudflared/config.yml
       no_log: true
 
