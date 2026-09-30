@@ -9,9 +9,10 @@ resource "cloudflare_dns_record" "web" {
   name    = "web"
   type    = "A"
   content = aws_eip.web.public_ip
-  ttl     = 1
-  proxied = true
+  ttl     = 300
+  proxied = false
 }
+
 
 resource "cloudflare_zero_trust_tunnel_cloudflared" "monitoring" {
   account_id = var.cloudflare_account_id
