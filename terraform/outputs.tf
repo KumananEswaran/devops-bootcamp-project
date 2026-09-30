@@ -31,3 +31,7 @@ output "ecr_repository_url" {
   value = aws_ecr_repository.app.repository_url
 }
 
+output "cloudflare_tunnel_token" {
+  value     = data.cloudflare_zero_trust_tunnel_cloudflared_token.monitoring.token
+  sensitive = true
+}
