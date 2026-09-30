@@ -9,10 +9,37 @@
         state: directory
         mode: "0755"
 
+    - name: Create the Grafana provisioning directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - /opt/monitoring/grafana-provisioning/datasources
+        - /opt/monitoring/grafana-provisioning/dashboards
+
     - name: Copy the Prometheus scrape config
       ansible.builtin.copy:
         src: files/prometheus.yml
         dest: /opt/monitoring/prometheus.yml
+        mode: "0644"
+
+    - name: Copy the Grafana datasource provisioning config
+      ansible.builtin.copy:
+        src: files/grafana-datasource.yml
+        dest: /opt/monitoring/grafana-provisioning/datasources/datasource.yml
+        mode: "0644"
+
+    - name: Copy the Grafana dashboard provider config
+      ansible.builtin.copy:
+        src: files/grafana-dashboard-provider.yml
+        dest: /opt/monitoring/grafana-provisioning/dashboards/provider.yml
+        mode: "0644"
+
+    - name: Copy the Grafana dashboard JSON
+      ansible.builtin.copy:
+        src: files/grafana-dashboard.json
+        dest: /opt/monitoring/grafana-provisioning/dashboards/armada-node-overview.json
         mode: "0644"
 
     - name: Copy the docker-compose file
