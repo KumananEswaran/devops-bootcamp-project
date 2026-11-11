@@ -10,7 +10,7 @@ module "vpc" {
   private_subnets = ["10.0.0.128/25"]
 
   enable_nat_gateway = true
-  single_nat_gateway  = true
+  single_nat_gateway = true
 
   map_public_ip_on_launch = true
 
