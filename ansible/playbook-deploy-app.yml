@@ -4,7 +4,8 @@
   become: true
   vars:
     ecr_registry: 265751834658.dkr.ecr.ap-southeast-1.amazonaws.com
-    app_image: "{{ ecr_registry }}/devops-bootcamp/final-project-kumanan:latest"
+    app_tag: latest # CI overrides with the commit SHA: -e app_tag=<sha>
+    app_image: "{{ ecr_registry }}/devops-bootcamp/final-project-kumanan:{{ app_tag }}"
   tasks:
     - name: Install the Docker SDK for Python and the ECR credential helper
       ansible.builtin.apt:

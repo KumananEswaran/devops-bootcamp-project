@@ -1,0 +1,93 @@
+name: Build and deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "ansible/playbook-deploy-app.yml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write # OIDC token for AWS
+  contents: read
+
+# Never run two deploys at once, and never cancel one half-way through.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ap-southeast-1
+  ECR_REGISTRY: 265751834658.dkr.ecr.ap-southeast-1.amazonaws.com
+  ECR_REPO: devops-bootcamp/final-project-kumanan
+
+jobs:
+  build-and-deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::265751834658:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      # The infra is destroyed between sessions. When it is down there is
+      # nothing to push to or deploy to, so build only and skip the rest.
+      - name: Check whether the infra is up
+        id: infra
+        run: |
+          controller=$(aws ec2 describe-instances \
+            --filters "Name=tag:Name,Values=devops-controller" "Name=instance-state-name,Values=running" \
+            --query 'Reservations[0].Instances[0].InstanceId' --output text)
+          if aws ecr describe-repositories --repository-names "$ECR_REPO" >/dev/null 2>&1 \
+             && [ "$controller" != "None" ]; then
+            echo "up=true" >> "$GITHUB_OUTPUT"
+            echo "controller=$controller" >> "$GITHUB_OUTPUT"
+          else
+            echo "up=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Infra is down (no ECR repo or running controller). Building only; push and deploy skipped."
+          fi
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        if: steps.infra.outputs.up == 'true'
+
+      - uses: docker/setup-buildx-action@v3
+
+      # The Dockerfile runs the app tests, so a build is also a test run.
+      # provenance: false keeps a plain image manifest (an attestation index broke
+      # the Ansible container idempotency check earlier).
+      - name: Build (and push when infra is up)
+        uses: docker/build-push-action@v6
+        with:
+          context: app
+          push: ${{ steps.infra.outputs.up == 'true' }}
+          provenance: false
+          tags: ${{ steps.infra.outputs.up == 'true' && format('{0}/{1}:{2}', env.ECR_REGISTRY, env.ECR_REPO, github.sha) || format('ship-app:{0}', github.sha) }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Deploy over SSM (no SSH from the runner): the controller pulls the repo
+      # and runs the same Ansible playbook, pinned to this commit's image tag.
+      - name: Deploy via SSM
+        if: steps.infra.outputs.up == 'true'
+        env:
+          CONTROLLER: ${{ steps.infra.outputs.controller }}
+        run: |
+          cmd="sudo -u ubuntu -H bash -c 'set -e; export PATH=\$HOME/.local/bin:\$PATH; cd ~/devops-bootcamp-project && git pull --ff-only && cd ansible && ansible-playbook -i inventory.ini playbook-deploy-app.yml -e app_tag=${GITHUB_SHA}'"
+          id=$(aws ssm send-command \
+            --instance-ids "$CONTROLLER" \
+            --document-name AWS-RunShellScript \
+            --parameters "$(jq -n --arg c "$cmd" '{commands: [$c]}')" \
+            --query 'Command.CommandId' --output text)
+          aws ssm wait command-executed --command-id "$id" --instance-id "$CONTROLLER" || true
+          result=$(aws ssm get-command-invocation --command-id "$id" --instance-id "$CONTROLLER")
+          echo "$result" | jq -r '.StandardOutputContent, .StandardErrorContent'
+          [ "$(echo "$result" | jq -r .Status)" = "Success" ]
+
+      - name: Smoke test
+        if: steps.infra.outputs.up == 'true'
+        run: curl -fsS --retry 6 --retry-delay 5 --retry-all-errors -o /dev/null http://web.kumananz.com
