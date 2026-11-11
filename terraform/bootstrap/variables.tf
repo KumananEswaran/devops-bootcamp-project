@@ -1,7 +1,7 @@
-variable "github_repo" {
-  description = "GitHub repository allowed to assume the CI roles, as owner/name"
+variable "github_sub_prefix" {
+  description = "OIDC subject prefix for the repo. Immutable form (owner/repo IDs) from: gh api repos/<owner>/<repo>/actions/oidc/customization/sub"
   type        = string
-  default     = "KumananEswaran/devops-bootcamp-project"
+  default     = "repo:KumananEswaran@63443836/devops-bootcamp-project@1384938268"
 }
 
 variable "state_bucket" {
