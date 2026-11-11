@@ -21,7 +21,10 @@ jobs:
         run: terraform fmt -check -recursive -diff
         working-directory: terraform
       - name: Validate
+        # ec2.tf reads ~/.ssh/devops-bootcamp.pub; a throwaway key is enough for validate
         run: |
+          mkdir -p ~/.ssh
+          ssh-keygen -q -t ed25519 -N "" -f ~/.ssh/devops-bootcamp
           terraform init -backend=false -input=false
           terraform validate
         working-directory: terraform
@@ -35,7 +38,10 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ansible-lint
-      - run: ansible-galaxy collection install community.docker
+      - run: |
+          ansible-galaxy role install -r requirements.yml
+          ansible-galaxy collection install community.docker
+        working-directory: ansible
       - run: ansible-lint playbook-*.yml
         working-directory: ansible
 
